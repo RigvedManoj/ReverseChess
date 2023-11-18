@@ -24,8 +24,28 @@ photobishop=PhotoImage(file="img/blackb.png")
 photoknight=PhotoImage(file="img/blackn.png")
 photoqueen=PhotoImage(file="img/blackq.png")
 photorook=PhotoImage(file="img/blackr.png")
-images=[photoking,photoqueen,photoknight,photobishop,photorook]
+images=[photoqueen,photoknight,photobishop,photorook]
 
+
+    
+class winnerdialog:
+
+    
+    def __init__(self,parent,x,guiinst):
+        top=self.top=Toplevel(parent)
+        top.configure(background='black')
+        top.geometry('600x150')
+        if(x in ["white","black"]):
+            Label(top,text="Congratulations "+x+" wins!!!" ,font=("bold italic", 15, "bold"),bg='black',fg='white',height=2).grid(padx=80,row=0,column=0)
+        else:
+            Label(top,text="Draw match" ,font=("bold italic", 15, "bold"),bg='black',fg='white',height=2).grid(padx=150,row=0,column=0)
+        b = Button(top,text="Reset board", command=lambda:self.boardreset(guiinst),bg='#FFC300',width=30)
+        b.grid(row=1,column=0)
+
+    def boardreset(self,guiinst):
+        guiinst.reset()
+        self.top.destroy() 
+            
 #if we choose a pawn promotion option
 def clickdialog(x,todestroy,board,p2,sel):
         if(x=='King'):
@@ -48,7 +68,7 @@ def clickdialog(x,todestroy,board,p2,sel):
         sel.selected_piece = None
         sel.hilighted = None
         sel.pieces = {}
-        sel.chessboard.get_enemy('black')
+        #sel.chessboard.get_enemy('black')
         sel.refresh()
         sel.draw_pieces()
         sel.canvas.after(200, sel.opponent)
@@ -56,15 +76,15 @@ def clickdialog(x,todestroy,board,p2,sel):
         sel.canvas.after(200, sel.draw_pieces)
         todestroy.destroy()
         
-class pawnpromotiondialog():
+class pawnpromotiondialog:
 
     
     def __init__(self,parent,board,p2,sel):
         top = self.top = Toplevel(parent)
         top.configure(background='black')
-        Label(top,text="Congradulations you have a pawn promotion!",font=("bold italic", 15, "bold"),bg='black',fg='white',height=2).grid(padx=10,row=0,column=0)
+        Label(top,text="Congratulations you have a pawn promotion!",font=("bold italic", 15, "bold"),bg='black',fg='white',height=2).grid(padx=10,row=0,column=0)
         Label(top,text="Pick a piece",fg='white',font=("bold italic", 15, "bold"),height=2,bg='black').grid(padx=10,row=1,column=0)
-        pieces_avail=['King','Queen','Knight','Bishop','Rook']
+        pieces_avail=['Queen','Knight','Bishop','Rook']
         k=2
         for i,j in zip(pieces_avail,images):
             button = Button(top,command=lambda x=i:clickdialog(x,top,board,p2,sel),bg='#FFC300',image=j,width=500,height=64)#.config(image=photo,width="40",height="40",activebackground="black")
@@ -131,13 +151,16 @@ class BoardGuiTk(tk.Frame):
 
         current_column = event.x / col_size
         current_row = 7 - (event.y / row_size)
-
+        global root
+        
         position = self.chessboard.letter_notation((current_row, current_column))
         piece = self.chessboard[position]
         #if pawn promotion move
         if self.selected_piece and self.selected_piece[0].abbriviation=='P' and position[1]=='8' and self.selected_piece[0].color=='white':
+            #self.winner(root,"white")
             #if the move leading to the promotion is valid make the move then ask options
-            #move return 0 if the given move is not valid
+            #move returns 0 if the given move is not valid
+            
             if(self.move(self.selected_piece[1], position)):
                 p=self.pawnpromotion(root,self.chessboard,position,self)
             #if the move leading to the promotion is invalid dont perform the move
@@ -174,7 +197,8 @@ class BoardGuiTk(tk.Frame):
     def pawnpromotion(self,root,b,p2,sel):
         ppd=pawnpromotiondialog(root,b,p2,sel)
 
-
+    def winner(self,root,x):
+        d=winnerdialog(root,x,self)
 
 
 
@@ -235,17 +259,51 @@ class BoardGuiTk(tk.Frame):
                 self.chessboard.move(p1,p2)
             except board.ChessError as error:
                 self.label_status["text"] = error.__class__.__name__
+                self.gameover();
                 return 0
             else:
                 self.label_status["text"] = " " + piece.color.capitalize() +": "+ p1 + p2
+                self.gameover();
                 return 1
+            self.gameover();
 
+    def gameover(self):
+        win=0
+        lose=0
+        global root
+        whose_turn=self.chessboard.player_turn
+        self.chessboard.player_turn="white"
+        white_moves=self.chessboard.check()
+        if len(white_moves)==0:
+            win=1
+        self.chessboard.player_turn="black"
+        black_moves=self.chessboard.check()
+        if len(black_moves)==0:
+            lose=1
+        if win==1 and lose==1:
+            #tie
+            self.winner(root,"tie")
+        else:
+            if win==1:
+                self.winner(root,"white")
+            else:
+                if lose==1:
+                    self.winner(root,"black")
+                  #winner(root,"black")
+        self.chessboard.player_turn=whose_turn
 
     def hilight(self, pos):
+        poss_moves=[]
         piece = self.chessboard[pos]
         if piece is not None and (piece.color == self.chessboard.player_turn):
             self.selected_piece = (self.chessboard[pos], pos)
-            self.hilighted = map(self.chessboard.number_notation, (self.chessboard[pos].possible_moves(pos)))
+            valid_move=self.chessboard.check()
+            for i in range(0,len(valid_move)):
+                p3,p4=valid_move[i].split("+")
+                piece2=self.chessboard[p3]
+                if piece==piece2:
+                    poss_moves.append(p4)
+            self.hilighted = map(self.chessboard.number_notation, (poss_moves))
             
 
     def addpiece(self, name, image, row=0, column=0):
@@ -306,6 +364,9 @@ class BoardGuiTk(tk.Frame):
 
     def reset(self):
         self.chessboard.load(board.FEN_STARTING)
+        self.selected_piece=None
+        self.hilighted=None
+        self.selected=None
         self.refresh()
         self.draw_pieces()
         self.refresh()
